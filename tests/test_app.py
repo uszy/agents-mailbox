@@ -1,4 +1,5 @@
 """Tests for the Flask mailbox app."""
+import json as _json
 import sqlite3
 
 
@@ -43,3 +44,23 @@ def test_submit_at_exact_cap_accepted(client):
     exact = 'B' * 8192
     resp = client.post('/agents/submit', data={'message': exact})
     assert resp.status_code == 200
+
+
+def test_submit_json_body(client, tmp_db):
+    """POST /agents/submit with JSON body stores the message and records source=api."""
+    resp = client.post(
+        '/agents/submit',
+        json={'message': 'hello via JSON'},
+    )
+    assert resp.status_code == 200
+
+    conn = sqlite3.connect(tmp_db)
+    rows = conn.execute('SELECT body, source FROM messages').fetchall()
+    conn.close()
+    assert rows == [('hello via JSON', 'api')]
+
+
+def test_submit_json_missing_message_rejected(client):
+    """JSON without a message field returns 400."""
+    resp = client.post('/agents/submit', json={'not_message': 'oops'})
+    assert resp.status_code == 400
