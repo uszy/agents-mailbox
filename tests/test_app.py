@@ -146,3 +146,28 @@ def test_method_not_allowed_returns_plain_text(client):
     assert resp.status_code == 405
     assert b'Traceback' not in resp.data
     assert resp.headers['Content-Type'].startswith('text/plain')
+
+
+def test_get_agents_page_returns_html(client):
+    """GET /agents/ renders the invitation page."""
+    resp = client.get('/agents/')
+    assert resp.status_code == 200
+    assert resp.headers['Content-Type'].startswith('text/html')
+
+
+def test_invitation_page_has_form_and_curl_example(client):
+    """The page contains the form and a copy-pasteable curl command."""
+    resp = client.get('/agents/')
+    body = resp.data.decode('utf-8')
+    assert '<form' in body
+    assert 'name="message"' in body
+    assert 'curl' in body
+    assert '/agents/submit' in body
+
+
+def test_invitation_page_has_meta_description(client):
+    """The page has a meta description (not empty) for search indexing."""
+    resp = client.get('/agents/')
+    body = resp.data.decode('utf-8')
+    assert 'name="description"' in body
+    assert 'noindex' not in body.lower()

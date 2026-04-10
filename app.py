@@ -4,7 +4,7 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 
-from flask import Flask, request
+from flask import Flask, render_template, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -110,6 +110,10 @@ def create_app(db_path: str | None = None, limiter_enabled: bool = True) -> Flas
 
         return ('Message received. Thank you.\n', 200,
                 {'Content-Type': 'text/plain; charset=utf-8'})
+
+    @app.route('/agents/')
+    def invitation():
+        return render_template('agents.html')
 
     @app.errorhandler(404)
     def _not_found(_e):
