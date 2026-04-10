@@ -130,3 +130,19 @@ def test_proxy_fix_respects_x_forwarded_for(client_with_limiter, tmp_db):
     row = conn.execute('SELECT remote_addr FROM messages').fetchone()
     conn.close()
     assert row[0] == '203.0.113.42'
+
+
+def test_404_returns_plain_text(client):
+    """Unknown routes return plain-text 404, no stack trace."""
+    resp = client.get('/agents/does-not-exist')
+    assert resp.status_code == 404
+    assert b'Traceback' not in resp.data
+    assert resp.headers['Content-Type'].startswith('text/plain')
+
+
+def test_method_not_allowed_returns_plain_text(client):
+    """GET on POST-only route returns plain-text 405."""
+    resp = client.get('/agents/submit')
+    assert resp.status_code == 405
+    assert b'Traceback' not in resp.data
+    assert resp.headers['Content-Type'].startswith('text/plain')

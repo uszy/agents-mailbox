@@ -111,6 +111,26 @@ def create_app(db_path: str | None = None, limiter_enabled: bool = True) -> Flas
         return ('Message received. Thank you.\n', 200,
                 {'Content-Type': 'text/plain; charset=utf-8'})
 
+    @app.errorhandler(404)
+    def _not_found(_e):
+        return ('Not found\n', 404, {'Content-Type': 'text/plain; charset=utf-8'})
+
+    @app.errorhandler(405)
+    def _method_not_allowed(_e):
+        return ('Method not allowed\n', 405,
+                {'Content-Type': 'text/plain; charset=utf-8'})
+
+    @app.errorhandler(429)
+    def _rate_limit(_e):
+        return ('Too many requests\n', 429,
+                {'Content-Type': 'text/plain; charset=utf-8'})
+
+    @app.errorhandler(500)
+    def _server_error(_e):
+        app.logger.exception('agents internal error')
+        return ('Internal server error\n', 500,
+                {'Content-Type': 'text/plain; charset=utf-8'})
+
     return app
 
 
