@@ -23,3 +23,23 @@ def test_submit_form_happy_path(client, tmp_db):
     assert len(rows) == 1
     assert rows[0][0] == "hello from a test"
     assert rows[0][1] == "curl"  # no Mozilla UA → classified as curl
+
+def test_submit_oversized_body_rejected(client):
+    """POST /agents/submit with >8KB body returns 400."""
+    big = 'A' * 8193  # 1 byte over the cap
+    resp = client.post('/agents/submit', data={'message': big})
+    assert resp.status_code == 400
+    assert b'too large' in resp.data or b'Bad request' in resp.data
+
+
+def test_submit_empty_body_rejected(client):
+    """POST /agents/submit with empty message returns 400."""
+    resp = client.post('/agents/submit', data={'message': ''})
+    assert resp.status_code == 400
+
+
+def test_submit_at_exact_cap_accepted(client):
+    """POST /agents/submit with exactly 8192-byte body is accepted."""
+    exact = 'B' * 8192
+    resp = client.post('/agents/submit', data={'message': exact})
+    assert resp.status_code == 200
