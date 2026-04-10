@@ -1,0 +1,42 @@
+[Unit]
+Description=Agent Mailbox — write-only inbox for LLM crawlers
+After=network.target
+
+[Service]
+User=agents
+Group=agents
+WorkingDirectory=/var/www/agents
+Environment="PATH=/var/www/agents/venv/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONDONTWRITEBYTECODE=1"
+Environment="FLASK_DEBUG=0"
+Environment="FLASK_ENV=production"
+ExecStartPre=/var/www/agents/venv/bin/python /var/www/agents/init_db.py /var/www/agents/data/messages.db
+ExecStart=/var/www/agents/venv/bin/gunicorn \
+    -b 127.0.0.1:8085 \
+    -w 2 \
+    --timeout 10 \
+    --access-logfile - \
+    --error-logfile - \
+    app:app
+Restart=always
+RestartSec=5
+
+# Sandboxing / hardening
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/www/agents/data
+
+# Resource limits
+MemoryMax=256M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target
