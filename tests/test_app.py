@@ -64,3 +64,39 @@ def test_submit_json_missing_message_rejected(client):
     """JSON without a message field returns 400."""
     resp = client.post('/agents/submit', json={'not_message': 'oops'})
     assert resp.status_code == 400
+
+
+def test_submit_captures_user_agent_and_headers(client, tmp_db):
+    """Submission stores user-agent, captured headers, and a timestamp."""
+    resp = client.post(
+        '/agents/submit',
+        data={'message': 'hello'},
+        headers={
+            'User-Agent': 'Mozilla/5.0 Testbot/1.0',
+            'Referer': 'https://example.com/',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'X-Claude-Source': 'experimental',
+            'X-Other-Header': 'should-not-be-captured',
+        },
+    )
+    assert resp.status_code == 200
+
+    conn = sqlite3.connect(tmp_db)
+    row = conn.execute(
+        'SELECT ts, user_agent, headers_json, source FROM messages'
+    ).fetchone()
+    conn.close()
+
+    ts, ua, headers_json, source = row
+    assert 'Testbot' in ua
+    assert source == 'form'  # Mozilla UA → form
+
+    captured = _json.loads(headers_json)
+    assert captured.get('Referer') == 'https://example.com/'
+    assert captured.get('Accept-Language') == 'en-US,en;q=0.9'
+    assert 'X-Claude-Source' in captured
+    assert captured['X-Claude-Source'] == 'experimental'
+    assert 'X-Other-Header' not in captured
+
+    # Timestamp is ISO 8601 UTC
+    assert '+00:00' in ts or 'Z' in ts
