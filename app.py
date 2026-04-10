@@ -5,6 +5,9 @@ import sqlite3
 from datetime import datetime, timezone
 
 from flask import Flask, request
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 DEFAULT_DB_PATH = '/var/www/agents/data/messages.db'
@@ -56,11 +59,26 @@ def create_app(db_path: str | None = None, limiter_enabled: bool = True) -> Flas
     app = Flask(__name__)
     app.config['DB_PATH'] = db_path
 
+    # Trust nginx as exactly one upstream hop.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+    # Rate limiting: 500/hour global, 10/hour per IP on the submit route.
+    # Store on app to prevent garbage collection of the weak reference.
+    limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=['500 per hour'],
+        storage_uri='memory://',
+        enabled=limiter_enabled,
+    )
+    app.extensions['limiter'] = limiter
+
     @app.route('/agents/health')
     def health():
         return ('ok', 200, {'Content-Type': 'text/plain; charset=utf-8'})
 
     @app.route('/agents/submit', methods=['POST'])
+    @limiter.limit('10 per hour')
     def submit():
         message = _extract_message(request)
         if message is None or message == '':

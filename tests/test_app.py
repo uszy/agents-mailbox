@@ -100,3 +100,33 @@ def test_submit_captures_user_agent_and_headers(client, tmp_db):
 
     # Timestamp is ISO 8601 UTC
     assert '+00:00' in ts or 'Z' in ts
+
+
+def test_per_ip_rate_limit(client_with_limiter):
+    """11th rapid POST from same IP returns 429."""
+    for i in range(10):
+        resp = client_with_limiter.post(
+            '/agents/submit', data={'message': f'hi {i}'}
+        )
+        assert resp.status_code == 200, f'request {i} failed: {resp.status_code}'
+
+    resp = client_with_limiter.post(
+        '/agents/submit', data={'message': 'one too many'}
+    )
+    assert resp.status_code == 429
+
+
+def test_proxy_fix_respects_x_forwarded_for(client_with_limiter, tmp_db):
+    """ProxyFix extracts the real IP from X-Forwarded-For (one hop of trust)."""
+    resp = client_with_limiter.post(
+        '/agents/submit',
+        data={'message': 'from proxy'},
+        headers={'X-Forwarded-For': '203.0.113.42'},
+        environ_base={'REMOTE_ADDR': '127.0.0.1'},
+    )
+    assert resp.status_code == 200
+
+    conn = sqlite3.connect(tmp_db)
+    row = conn.execute('SELECT remote_addr FROM messages').fetchone()
+    conn.close()
+    assert row[0] == '203.0.113.42'
