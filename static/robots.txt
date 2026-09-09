@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /internal/db-backup/
 
 Sitemap: https://daaarek.uk/sitemap.xml
